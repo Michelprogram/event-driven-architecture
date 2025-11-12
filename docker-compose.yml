@@ -35,8 +35,11 @@ services:
       - app-network
 
   kafka-init:
+    container_name: kafka-init
     image: confluentinc/cp-kafka:7.0.1
     command: ["/bin/bash", "-c", "/create-topics.sh"]
+    environment:
+      TOPICS: "logs.central,notifications.central"
     depends_on:
       kafka:
         condition: service_started
@@ -49,6 +52,7 @@ services:
       - app-network
 
   kafka-ui:
+    container_name: kafka-ui
     image: provectuslabs/kafka-ui:latest
     ports:
       - 8080:8080
@@ -60,6 +64,7 @@ services:
       - app-network
 
   logs-service:
+    container_name: logs-service
     ports:
       - "3000:3000"
     build:
@@ -73,6 +78,7 @@ services:
       - app-network
 
   users-service-database:
+    container_name: users-service-database
     image: mongo:latest
     restart: unless-stopped
     ports:
@@ -86,6 +92,7 @@ services:
       - users-service-network
 
   users-service:
+    container_name: users-service
     ports:
       - "3001:3001"
     build:
@@ -99,4 +106,16 @@ services:
     restart: on-failure
     networks:
       - users-service-network
+      - app-network
+
+  notifications-service:
+    container_name: notifications-service
+    build:
+      context: ./services/notifications
+      dockerfile: Dockerfile
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: on-failure
+    networks:
       - app-network

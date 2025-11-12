@@ -11,7 +11,8 @@ import (
 
 const (
 	TOPIC          = "logs.central"
-	BROKER_ADDRESS = "localhost:9092"
+	BROKER_ADDRESS = "kafka:29092"
+	GROUP_ID       = "logs-group"
 )
 
 type Log struct {
@@ -20,7 +21,7 @@ type Log struct {
 }
 
 func (l Log) String() string {
-	return fmt.Sprintf("from %s: %s\n", l.ServiceName, l.Message)
+	return fmt.Sprintf("from %s: %s", l.ServiceName, l.Message)
 }
 
 type KafkaClient struct {
@@ -32,6 +33,7 @@ func NewKafkaClient(logger chan<- string) *KafkaClient {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{BROKER_ADDRESS},
 		Topic:   TOPIC,
+		GroupID: GROUP_ID,
 	})
 
 	return &KafkaClient{
@@ -54,7 +56,7 @@ func (k KafkaClient) Read() error {
 			continue
 		}
 
-		output := fmt.Sprintf("[Logs] Received Log: %s.\n", message)
+		output := fmt.Sprintf("[Logs] Received %s", message)
 		log.Println(output)
 		k.logger <- output
 	}

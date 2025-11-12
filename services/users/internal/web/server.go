@@ -92,7 +92,16 @@ func (s Server) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("User %s successfully logged\n", username)
+	output := fmt.Sprintf("User %s successfully logged\n", username)
+
+	err = s.Kakfa.Send(output)
+
+	if err != nil {
+		http.Error(w, "Error sending log to Kafka", http.StatusInternalServerError)
+		return
+	}
+
+	log.Println(output)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(token))

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	TOPIC          = "notifications"
+	TOPIC          = "notifications.central"
 	BROKER_ADDRESS = "kafka:29092"
 )
 
