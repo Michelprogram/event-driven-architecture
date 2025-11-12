@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	topic         = "logs.central"
-	brokerAddress = "localhost:9092"
+	TOPIC          = "logs.central"
+	BROKER_ADDRESS = "localhost:9092"
 )
 
 type Log struct {
@@ -30,8 +30,8 @@ type KafkaClient struct {
 
 func NewKafkaClient(logger chan<- string) *KafkaClient {
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{brokerAddress},
-		Topic:   topic,
+		Brokers: []string{BROKER_ADDRESS},
+		Topic:   TOPIC,
 	})
 
 	return &KafkaClient{

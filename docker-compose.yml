@@ -1,5 +1,11 @@
 version: "3.8"
 
+networks:
+  users-service-network:
+    driver: bridge
+  app-network:
+    driver: bridge
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.0.1
@@ -7,6 +13,8 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app-network
 
   kafka:
     image: confluentinc/cp-kafka:7.0.1
@@ -23,6 +31,8 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - app-network
 
   kafka-init:
     image: confluentinc/cp-kafka:7.0.1
@@ -35,6 +45,8 @@ services:
         source: ./ressources/create-topics.sh
         target: /create-topics.sh
     init: true
+    networks:
+      - app-network
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -44,6 +56,8 @@ services:
       DYNAMIC_CONFIG_ENABLED: "true"
     volumes:
       - ./ressources/kafkaui.yml:/etc/kafkaui/dynamic_config.yaml
+    networks:
+      - app-network
 
   logs-service:
     ports:
@@ -55,3 +69,34 @@ services:
       kafka-init:
         condition: service_completed_successfully
     restart: on-failure
+    networks:
+      - app-network
+
+  users-service-database:
+    image: mongo:latest
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin_root
+      - MONGO_INITDB_ROOT_PASSWORD=password_root
+    volumes:
+      - ./services/users/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - users-service-network
+
+  users-service:
+    ports:
+      - "3001:3001"
+    build:
+      context: ./services/users
+      dockerfile: Dockerfile
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      users-service-database:
+        condition: service_completed_successfully
+    restart: on-failure
+    networks:
+      - users-service-network
+      - app-network
