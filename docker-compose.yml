@@ -24,19 +24,34 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
-  init-kafka:
-    image: confluentinc/cp-kafka:6.1.1
+  kafka-init:
+    image: confluentinc/cp-kafka:7.0.1
+    command: ["/bin/bash", "-c", "/create-topics.sh"]
     depends_on:
-      - kafka
-    entrypoint: ["/bin/sh", "-c"]
-    command: |
-      "
-      # blocks until kafka is reachable
-      kafka-topics --bootstrap-server kafka:29092 --list
+      kafka:
+        condition: service_started
+    volumes:
+      - type: bind
+        source: ./ressources/create-topics.sh
+        target: /create-topics.sh
+    init: true
 
-      echo -e 'Creating kafka topics'
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic orders --replication-factor 1 --partitions 3
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 8080:8080
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+    volumes:
+      - ./ressources/kafkaui.yml:/etc/kafkaui/dynamic_config.yaml
 
-      echo -e 'Successfully created the following topics:'
-      kafka-topics --bootstrap-server kafka:29092 --list
-      "
+  logs-service:
+    ports:
+      - "3000:3000"
+    build:
+      context: ./services/logs
+      dockerfile: Dockerfile
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: on-failure

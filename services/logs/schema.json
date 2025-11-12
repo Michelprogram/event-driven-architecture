@@ -1,0 +1,6 @@
+{
+  "input": {
+    "message": "string",
+    "service-name": "string"
+  }
+}
