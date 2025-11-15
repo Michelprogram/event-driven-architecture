@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"eda-logs/internal/types"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,26 +11,18 @@ import (
 )
 
 const (
-	TOPIC          = "logs.central"
+	TOPIC          = "logs"
 	BROKER_ADDRESS = "kafka:29092"
 	GROUP_ID       = "logs-group"
 )
 
-type Log struct {
-	Message     string `json:"message"`
-	ServiceName string `json:"service_name"`
-}
-
-func (l Log) String() string {
-	return fmt.Sprintf("from %s: %s", l.ServiceName, l.Message)
-}
-
 type KafkaClient struct {
 	reader *kafka.Reader
+	db     types.IDatabase
 	logger chan<- string
 }
 
-func NewKafkaClient(logger chan<- string) *KafkaClient {
+func NewKafkaClient(logger chan<- string, db types.IDatabase) *KafkaClient {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{BROKER_ADDRESS},
 		Topic:   TOPIC,
@@ -38,6 +31,7 @@ func NewKafkaClient(logger chan<- string) *KafkaClient {
 
 	return &KafkaClient{
 		reader,
+		db,
 		logger,
 	}
 }
@@ -50,7 +44,7 @@ func (k KafkaClient) Read() error {
 			return err
 		}
 
-		var message Log
+		var message types.Log
 		if err := json.Unmarshal(m.Value, &message); err != nil {
 			log.Printf("Error unmarshaling JSON: %v\n", err)
 			continue
@@ -59,6 +53,7 @@ func (k KafkaClient) Read() error {
 		output := fmt.Sprintf("[Logs] Received %s", message)
 		log.Println(output)
 		k.logger <- output
+		k.db.Save(message)
 	}
 
 }
