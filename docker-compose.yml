@@ -37,9 +37,9 @@ services:
   kafka-init:
     container_name: kafka-init
     image: confluentinc/cp-kafka:7.0.1
-    command: ["/bin/bash", "-c", "/create-topics.sh"]
+    command: ["/bin/sh", "-c", "cat /create-topics.sh | tr -d '\r' | /bin/sh"]
     environment:
-      TOPICS: "logs.central,notifications.central"
+      TOPICS: "logs.central,notifications.central,stock.reserve,stock.echec,order-created,payment.done,inventories.central"
     depends_on:
       kafka:
         condition: service_started
@@ -55,7 +55,7 @@ services:
     container_name: kafka-ui
     image: provectuslabs/kafka-ui:latest
     ports:
-      - 8080:8080
+      - "8080:8080"
     environment:
       DYNAMIC_CONFIG_ENABLED: "true"
     volumes:
@@ -133,3 +133,59 @@ services:
     restart: on-failure
     networks:
       - app-network
+
+  inventory-service:
+    container_name: inventory-service
+    build:
+      context: ./services/inventories
+      dockerfile: Dockerfile
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: on-failure
+    networks:
+      - app-network
+    environment:
+      KAFKA_BROKER: kafka:29092
+      TOPIC_INVENTORY: inventories.central
+      TOPIC_STOCK_RESERVED: stock.reserve
+      TOPIC_STOCK_FAILED: stock.echec
+      TOPIC_LOGS: logs.central
+      KAFKA_GROUP_ID: inventory-group
+
+  order-service-database:
+    container_name: order-service-database
+    image: mongo:latest
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin_order
+      - MONGO_INITDB_ROOT_PASSWORD=password_order
+    volumes:
+      - ./services/orders/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - users-service-network
+      - app-network
+
+  orders-service:
+    container_name: orders-service
+    build:
+      context: ./services/orders
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      order-service-database:
+        condition: service_completed_successfully
+    command: /bin/sh -c 'while ! nc -z order-service-database 27017; do echo "Waiting for database..."; sleep 1; done; ./orders-service'
+    restart: on-failure
+    networks:
+      - users-service-network
+      - app-network
+    environment:
+      - MONGO_URI=mongodb://admin_order:password_order@order-service-database:27017
+      - KAFKA_BROKER=kafka:29092
+      - TOPIC_ORDER_CREATED=order-created
