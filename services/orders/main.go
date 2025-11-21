@@ -1,22 +1,27 @@
 package main
 
 import (
-    "context"
-    "encoding/json"
-    "log"
-    "net/http"
-    "os"
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
 
-    "github.com/gin-gonic/gin"
-    "github.com/segmentio/kafka-go"
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/gin-gonic/gin"
+	"github.com/segmentio/kafka-go"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Order struct {
     ProductID int `json:"productId"`
     Quantity  int `json:"quantity"`
     UserID    int `json:"userId"`
+}
+
+type Notification struct {
+	Action string `json:"action"`
 }
 
 var ordersCollection *mongo.Collection
@@ -42,9 +47,18 @@ func main() {
         Topic:    "order-created",
         Balancer: &kafka.LeastBytes{},
     })
-    defer func() {
-        _ = kafkaWriter.Close()
-    }()
+    defer kafkaWriter.Close()
+
+    kafkaWriterNotification := kafka.NewWriter(kafka.WriterConfig{
+        Brokers:  []string{kafkaBroker},
+        Topic:    "notifications.central",
+        Balancer: &kafka.LeastBytes{},
+    })
+    defer kafkaWriterNotification.Close()
+
+    //Kakfa reader de commande, ajoute à la BDD
+    //Une route des commandes pour les lister 
+    
 
     // Router
     r := gin.Default()
@@ -63,13 +77,33 @@ func main() {
         }
 
         // Publier sur Kafka
-        orderJson, _ := json.Marshal(order)
+        orderJson, err := json.Marshal(order)
+
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal order"})
+            return
+        }
+
         if err = kafkaWriter.WriteMessages(context.Background(),
             kafka.Message{Value: orderJson},
         ); err != nil {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish Kafka message"})
             return
         }
+
+
+
+        notif := Notification{Action: fmt.Sprintf("New order created for ProductID %d", order.ProductID)}
+        
+        notifJson, err := json.Marshal(notif)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal notification"})
+            return
+        }
+
+        kafkaWriterNotification.WriteMessages(context.Background(),
+            kafka.Message{Value: notifJson},
+        )
 
         c.JSON(http.StatusCreated, gin.H{"message": "Order created", "order": order})
     })
