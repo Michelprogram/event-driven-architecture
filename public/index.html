@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SkateShop – Our Collection</title>
+  <link rel="stylesheet" href="style.css" />
+  <script defer src="app.js"></script>
+
+</head>
+<body data-page="collection">
+  <!-- HEADER / NAV -->
+  <header class="topbar">
+    <div class="topbar__inner">
+      <div class="brand">
+        <img src="assets/logo.png" alt="SkateShop" class="brand__logo">
+
+        <div>
+          <div class="brand__title">SkateShop</div>
+          <div class="brand__subtitle">Premium Skateboards with Kafka Event Streaming</div>
+        </div>
+      </div>
+
+      <a href="cart.html" class="cart-btn" id="viewCartBtn">
+        <span>🛒</span>
+        <span>View Cart (<span id="cartCount">0</span>)</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <main class="container">
+    <h1 class="h1">Our Collection</h1>
+    <p class="muted">Premium skateboards for every style</p>
+
+    <section class="grid">
+      <!-- Card 1 -->
+<article class="card">
+  <div class="card__media">
+    <img src="assets/pro-street.jpeg" alt="Pro Street Cruiser">
+  </div>
+  <div class="card__body">
+    <h3 class="card__title">Pro Street Cruiser</h3>
+    <p class="card__desc">Perfect for street skating and tricks</p>
+    <div class="card__bottom">
+      <span class="price">$89.99</span>
+      <button class="btn btn--dark" data-add="pro-street">Add to Cart</button>
+    </div>
+  </div>
+</article>
+
+<!-- Card 2 -->
+<article class="card">
+  <div class="card__media">
+    <img src="assets/elite-deck.jpeg" alt="Elite Performance Deck">
+  </div>
+  <div class="card__body">
+    <h3 class="card__title">Elite Performance Deck</h3>
+    <p class="card__desc">Professional grade for advanced riders</p>
+    <div class="card__bottom">
+      <span class="price">$129.99</span>
+      <button class="btn btn--dark" data-add="elite-deck">Add to Cart</button>
+    </div>
+  </div>
+</article>
+
+<!-- Card 3 -->
+<article class="card">
+  <div class="card__media">
+    <img src="assets/sunset-rider.jpeg" alt="Sunset Rider">
+  </div>
+  <div class="card__body">
+    <h3 class="card__title">Sunset Rider</h3>
+    <p class="card__desc">Vibrant design with smooth ride</p>
+    <div class="card__bottom">
+      <span class="price">$99.99</span>
+      <button class="btn btn--dark" data-add="sunset-rider">Add to Cart</button>
+    </div>
+  </div>
+</article>
+
+<!-- Card 4 -->
+<article class="card">
+  <div class="card__media">
+    <img src="assets/park-master.jpeg" alt="Park Master">
+  </div>
+  <div class="card__body">
+    <h3 class="card__title">Park Master</h3>
+    <p class="card__desc">Built for skate park sessions</p>
+    <div class="card__bottom">
+      <span class="price">$109.99</span>
+      <button class="btn btn--dark" data-add="park-master">Add to Cart</button>
+    </div>
+  </div>
+</article>
+
+    </section>
+  </main>
+</body>
+</html>

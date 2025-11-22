@@ -1,0 +1,50 @@
+{
+  "event": "commande.initialisee",
+  "description": "Événement publié lorsque l'utilisateur confirme un achat via le frontend (bouton Proceed to Checkout). Il démarre le processus de commande côté backend.",
+  "producer": "frontend",
+  "topic": "commande.initialisee",
+  "schemaVersion": "1.0.0",
+  "fields": {
+    "idCommande": {
+      "type": "string",
+      "description": "Identifiant unique de la commande (généré côté frontend)"
+    },
+    "idUtilisateur": {
+      "type": "string",
+      "description": "Identifiant de l'utilisateur (ou 'user1' si non connecté)"
+    },
+    "produits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "qty": { "type": "number" }
+        }
+      },
+      "description": "Liste des produits achetés avec leur quantité"
+    },
+    "prixTotal": {
+      "type": "number",
+      "description": "Montant total de la commande avant taxes"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "Date et heure ISO 8601 de la commande"
+    }
+  },
+  "example": {
+    "event": "commande.initialisee",
+    "data": {
+      "idCommande": "cmd-1731440549000",
+      "idUtilisateur": "user1",
+      "produits": [
+        { "id": "pro-street", "qty": 1 },
+        { "id": "sunset-rider", "qty": 2 }
+      ],
+      "prixTotal": 289.97,
+      "timestamp": "2025-11-12T18:55:49Z"
+    }
+  }
+}
+

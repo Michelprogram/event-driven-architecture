@@ -1,190 +1,35 @@
-version: "3.8"
-
-networks:
-  users-service-network:
-    driver: bridge
-  orders-service-network:
-    driver: bridge
-  app-network:
-    driver: bridge
-
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.0.1
+    image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
+    ports:
+      - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - app-network
 
   kafka:
-    image: confluentinc/cp-kafka:7.0.1
+    image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
     ports:
       - "9092:9092"
-    expose:
-      - "29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    networks:
-      - app-network
-
-  kafka-init:
-    container_name: kafka-init
-    image: confluentinc/cp-kafka:7.0.1
-    command: ["/bin/bash", "-c", "/create-topics.sh"]
-    environment:
-      TOPICS: "logs.central,notifications.central,stock.reserve,stock.echec,order-created,payment.done,inventories.central"
     depends_on:
-      kafka:
-        condition: service_started
-    volumes:
-      - type: bind
-        source: ./ressources/create-topics.sh
-        target: /create-topics.sh
-    init: true
-    networks:
-      - app-network
+      - zookeeper
 
-  kafka-ui:
-    container_name: kafka-ui
-    image: provectuslabs/kafka-ui:latest
+  frontend:
+    build: .
+    container_name: frontend
     ports:
       - "8080:8080"
+    depends_on:
+      - kafka
     environment:
-      DYNAMIC_CONFIG_ENABLED: "true"
-    volumes:
-      - ./ressources/kafkaui.yml:/etc/kafkaui/dynamic_config.yaml
-    networks:
-      - app-network
+      KAFKA_BROKER: "kafka:9092"
 
-  logs-service:
-    container_name: logs-service
-    ports:
-      - "3000:3000"
-    build:
-      context: ./services/logs
-      dockerfile: Dockerfile
-    depends_on:
-      kafka-init:
-        condition: service_completed_successfully
-    restart: on-failure
-    networks:
-      - app-network
 
-  users-service-database:
-    container_name: users-service-database
-    image: mongo:latest
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin_root
-      - MONGO_INITDB_ROOT_PASSWORD=password_root
-    volumes:
-      - ./services/users/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
-    networks:
-      - users-service-network
-
-  users-service:
-    container_name: users-service
-    ports:
-      - "3001:3001"
-    build:
-      context: ./services/users
-      dockerfile: Dockerfile
-    depends_on:
-      kafka-init:
-        condition: service_completed_successfully
-      users-service-database:
-        condition: service_completed_successfully
-    restart: on-failure
-    networks:
-      - users-service-network
-      - app-network
-
-  notifications-service:
-    container_name: notifications-service
-    build:
-      context: ./services/notifications
-      dockerfile: Dockerfile
-    depends_on:
-      kafka-init:
-        condition: service_completed_successfully
-    restart: on-failure
-    networks:
-      - app-network
-
-  payments-service:
-    container_name: payments-service
-    ports:
-      - "3002:3002"
-    build:
-      context: ./services/payments
-      dockerfile: Dockerfile
-    depends_on:
-      kafka-init:
-        condition: service_completed_successfully
-    restart: on-failure
-    networks:
-      - app-network
-
-  inventory-service:
-    container_name: inventory-service
-    build:
-      context: ./services/inventories
-      dockerfile: Dockerfile
-    depends_on:
-      kafka-init:
-        condition: service_completed_successfully
-    restart: on-failure
-    networks:
-      - app-network
-    environment:
-      KAFKA_BROKER: kafka:29092
-      TOPIC_INVENTORY: inventories.central
-      TOPIC_STOCK_RESERVED: stock.reserve
-      TOPIC_STOCK_FAILED: stock.echec
-      TOPIC_LOGS: logs.central
-      KAFKA_GROUP_ID: inventory-group
-
-  order-service-database:
-    container_name: order-service-database
-    image: mongo:latest
-    restart: unless-stopped
-    ports:
-      - "27018:27017"
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin_order
-      - MONGO_INITDB_ROOT_PASSWORD=password_order
-    volumes:
-      - ./services/orders/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
-    networks:
-      - orders-service-network
-
-  orders-service:
-    container_name: orders-service
-    build:
-      context: ./services/orders
-      dockerfile: Dockerfile
-    ports:
-      - "3003:3003"
-    depends_on:
-      kafka-init:
-        condition: service_completed_successfully
-      order-service-database:
-        condition: service_completed_successfully
-    restart: on-failure
-    networks:
-      - orders-service-network
-      - app-network
-    environment:
-      - MONGO_URI=mongodb://admin_order:password_order@order-service-database:27017
-      - KAFKA_BROKER=kafka:29092
