@@ -7,17 +7,19 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/segmentio/kafka-go"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Order struct {
-    ProductID int `json:"productId"`
-    Quantity  int `json:"quantity"`
-    UserID    int `json:"userId"`
+	ProductID int `json:"productId"`
+	Quantity  int `json:"quantity"`
+	UserID    int `json:"userId"`
 }
 
 type Notification struct {
@@ -27,87 +29,86 @@ type Notification struct {
 var ordersCollection *mongo.Collection
 
 func main() {
-    // Connexion MongoDB
-    clientOpts := options.Client().ApplyURI("mongodb://admin_order:password_order@order-service-database:27017")
-    client, err := mongo.Connect(context.Background(), clientOpts)
-    if err != nil {
-        log.Fatal(err)
-    }
-    ordersCollection = client.Database("orders-db").Collection("orders")
-    log.Println("Connected to MongoDB")
+	// Connexion MongoDB
+	clientOpts := options.Client().ApplyURI("mongodb://user_app:strong_app_password@orders-service-database:27017/orders-db?authSource=orders-db")
+	client, err := mongo.Connect(context.Background(), clientOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    // Kafka producer: lire le broker depuis l'env si défini, sinon fallback kafka:29092
-    kafkaBroker := os.Getenv("KAFKA_BROKER")
-    if kafkaBroker == "" {
-        kafkaBroker = "kafka:29092"
-    }
+	err = client.Ping(context.TODO(), nil)
 
-    kafkaWriter := kafka.NewWriter(kafka.WriterConfig{
-        Brokers:  []string{kafkaBroker},
-        Topic:    "order-created",
-        Balancer: &kafka.LeastBytes{},
-    })
-    defer kafkaWriter.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    kafkaWriterNotification := kafka.NewWriter(kafka.WriterConfig{
-        Brokers:  []string{kafkaBroker},
-        Topic:    "notifications.central",
-        Balancer: &kafka.LeastBytes{},
-    })
-    defer kafkaWriterNotification.Close()
+	ordersCollection = client.Database("orders-db").Collection("orders")
+	log.Println("Connected to MongoDB")
 
-    //Kakfa reader de commande, ajoute à la BDD
-    //Une route des commandes pour les lister 
-    
+	// Kafka producer: lire le broker depuis l'env si défini, sinon fallback kafka:29092
+	kafkaBroker := os.Getenv("KAFKA_BROKER")
+	if kafkaBroker == "" {
+		kafkaBroker = "kafka:29092"
+	}
 
-    // Router
-    r := gin.Default()
-    r.POST("/order", func(c *gin.Context) {
-        var order Order
-        if err := c.ShouldBindJSON(&order); err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-            return
-        }
+	kafkaReader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers: []string{kafkaBroker},
+		Topic:   "order.central",
+	})
+	defer kafkaReader.Close()
 
-        // Sauvegarde MongoDB
-        _, err := ordersCollection.InsertOne(context.Background(), order)
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save order"})
-            return
-        }
+	kafkaWriterNotification := kafka.NewWriter(kafka.WriterConfig{
+		Brokers: []string{kafkaBroker},
+		Topic:   "notifications.central",
+	})
+	defer kafkaWriterNotification.Close()
 
-        // Publier sur Kafka
-        orderJson, err := json.Marshal(order)
+	r := gin.Default()
+	r.GET("/orders", func(c *gin.Context) {
+		orders, err := ordersCollection.Find(context.Background(), bson.M{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get orders"})
+			return
+		}
+		c.JSON(http.StatusOK, orders)
+	})
 
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal order"})
-            return
-        }
+	go func() {
+		for {
+			message, err := kafkaReader.ReadMessage(context.Background())
+			if err != nil {
+				log.Printf("Error reading message: %v\n", err)
+				continue
+			}
 
-        if err = kafkaWriter.WriteMessages(context.Background(),
-            kafka.Message{Value: orderJson},
-        ); err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish Kafka message"})
-            return
-        }
+			var order Order
+			if err := json.Unmarshal(message.Value, &order); err != nil {
+				log.Printf("Error unmarshaling JSON: %v\n", err)
+				continue
+			}
 
+			time.Sleep(5 * time.Second)
 
+			_, err = ordersCollection.InsertOne(context.Background(), order)
+			if err != nil {
+				log.Printf("Error saving order: %v\n", err)
+				continue
+			}
 
-        notif := Notification{Action: fmt.Sprintf("New order created for ProductID %d", order.ProductID)}
-        
-        notifJson, err := json.Marshal(notif)
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal notification"})
-            return
-        }
+			notif := Notification{Action: fmt.Sprintf("New order created for ProductID %d", order.ProductID)}
 
-        kafkaWriterNotification.WriteMessages(context.Background(),
-            kafka.Message{Value: notifJson},
-        )
+			notifJson, err := json.Marshal(notif)
+			if err != nil {
+				log.Printf("Error marshalling notification: %v\n", err)
+				continue
+			}
 
-        c.JSON(http.StatusCreated, gin.H{"message": "Order created", "order": order})
-    })
+			kafkaWriterNotification.WriteMessages(context.Background(),
+				kafka.Message{Value: notifJson},
+			)
 
-    
-    r.Run(":3003")
+		}
+	}()
+
+	r.Run(":3003")
 }

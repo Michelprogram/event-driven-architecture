@@ -4,6 +4,8 @@ import (
 	"eda-payments/internal"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 type Server struct {
@@ -20,9 +22,27 @@ func (s Server) Payment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	itemName := r.FormValue("itemName")
+	itemQuantity := r.FormValue("itemQuantity")
+
+	if itemName == "" || itemQuantity == "" {
+		http.Error(w, "Item name and quantity are required", http.StatusBadRequest)
+		return
+	}
+
+	itemQuantityInt, err := strconv.Atoi(itemQuantity)
+
+	if err != nil {
+		http.Error(w, "Invalid item quantity", http.StatusBadRequest)
+		return
+	}
+
 	// Get Token -> verify claims
 
-	err := s.Kakfa.SendInventory()
+	// Simulate a delay to test the idempotence
+	time.Sleep(10 * time.Second)
+
+	err = s.Kakfa.SendInventory(itemName, itemQuantityInt)
 
 	if err != nil {
 		http.Error(w, "Failed to send inventory message", http.StatusInternalServerError)

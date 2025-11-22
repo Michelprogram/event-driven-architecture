@@ -9,12 +9,21 @@ import (
 
 const (
 	NOTIFICATION_TOPIC = "notifications.central"
-	INVENTORY_TOPIC    = "inventories.central"
+	INVENTORY_TOPIC    = "payment.done"
 	BROKER_ADDRESS     = "kafka:29092"
 	GROUP_ID           = "payment-group"
 )
 
-type Inventaire struct {
+type Item struct {
+	SKU string `json:"sku"`
+	Qty int    `json:"qty"`
+}
+
+type OrderPlaced struct {
+	OrderID string  `json:"orderId"`
+	UserID  string  `json:"userId"`
+	Items   []Item  `json:"items"`
+	Total   float64 `json:"total"`
 }
 
 type Notification struct {
@@ -63,8 +72,16 @@ func sendKafkaMessage(writer *kafka.Writer, key string, value interface{}) error
 	return nil
 }
 
-func (k KafkaClient) SendInventory() error {
-	return sendKafkaMessage(k.inventory, "payment_inventory", Inventaire{})
+func (k KafkaClient) SendInventory(itemName string, itemQuantity int) error {
+	order := OrderPlaced{
+		OrderID: "123",
+		UserID:  "456",
+		Items: []Item{
+			{SKU: itemName, Qty: itemQuantity},
+		},
+		Total: 100,
+	}
+	return sendKafkaMessage(k.inventory, "payment_inventory", order)
 }
 
 func (k KafkaClient) SendNotification() error {

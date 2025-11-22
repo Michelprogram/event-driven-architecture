@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	URL        = "mongodb://user_app:strong_app_password@logs-service-database:27018/user_db?authSource=user_db"
+	URL        = "mongodb://user_app:strong_app_password@logs-service-database:27017/log_db?authSource=log_db"
 	COLLECTION = "logs"
 	DATABASE   = "log_db"
 )
