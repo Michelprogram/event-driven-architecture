@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SkateShop – Shopping Cart</title>
+  <link rel="stylesheet" href="style.css" />
+  <script defer src="app.js"></script>
+
+  <style>
+  /* --- Améliorations visuelles spécifiques au panier --- */
+
+  .cart-header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #fff;
+    text-align: center;
+    padding: 60px 20px;
+    margin-bottom: 40px;
+    border-radius: 0 0 40px 40px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .cart-header h1 {
+    font-size: 2.5rem;
+    margin: 0;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+
+  .cart-header p {
+    margin-top: 10px;
+    font-size: 1.1rem;
+    color: #cbd5e1;
+  }
+
+  .cart-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 150px;
+  }
+
+  .cart-empty {
+    text-align: center;
+    color: #64748b;
+    font-style: italic;
+    padding: 40px 0;
+    font-size: 1.1rem;
+  }
+
+  /* --- Bloc résumé --- */
+  .summary {
+    border-top: 4px solid #2563eb;
+    transition: transform 0.2s ease;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .summary:hover {
+    transform: translateY(-3px);
+  }
+
+  .summary__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+  }
+
+  .divider {
+    height: 1px;
+    background: #e2e8f0;
+  }
+
+  .total__amount {
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: #2563eb;
+  }
+
+  /* --- Boutons --- */
+  .btn {
+    border: 0;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+    transition: all 0.25s ease;
+  }
+
+  .btn--dark {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.3);
+  }
+
+  .btn--dark:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+  }
+
+  .btn--light {
+    border: 1px solid #e2e8f0;
+    color: #1e293b;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  }
+
+  .btn--light:hover {
+    background: #f8fafc;
+  }
+
+  /* --- Espacement propre des boutons --- */
+  #checkoutBtn {
+    margin-top: 15px;
+    margin-bottom: 8px;
+  }
+
+  .btn--light {
+    margin-top: 5px;
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 768px) {
+    .summary {
+      margin-top: 25px;
+    }
+  }
+</style>
+
+</head>
+<body data-page="cart">
+  <!-- HEADER -->
+  <header class="topbar">
+    <div class="topbar__inner">
+      <div class="brand">
+        <img src="assets/logo.png" alt="SkateShop" class="brand__logo">
+        <div>
+          <div class="brand__title">SkateShop</div>
+          <div class="brand__subtitle">Premium Skateboards with Kafka Event Streaming</div>
+        </div>
+      </div>
+      <a href="index.html" class="link">← Continue Shopping</a>
+    </div>
+  </header>
+
+  <!-- BANNIÈRE / TITRE -->
+  <section class="cart-header">
+    <h1>Your Shopping Cart 🛒</h1>
+    <p>Review your selections before checkout</p>
+  </section>
+
+  <!-- CONTENU PRINCIPAL -->
+  <main class="container">
+    <section class="cart-layout">
+      <!-- Liste des produits -->
+      <div class="cart-list" id="cartList">
+        <!-- Message affiché si panier vide -->
+        <div class="cart-empty" id="emptyMsg">Your cart is empty. Add some boards!</div>
+      </div>
+
+      <!-- Résumé -->
+      <aside class="summary">
+        <h3>Order Summary</h3>
+        <div class="summary__row">
+          <span>Subtotal</span><span id="sumSubtotal">$0.00</span>
+        </div>
+        <div class="divider"></div>
+        <div class="summary__row">
+          <span>Tax (8%)</span><span id="sumTax">$0.00</span>
+        </div>
+        <div class="divider"></div>
+        <div class="summary__row total">
+          <span>Total</span><span id="sumTotal" class="total__amount">$0.00</span>
+        </div>
+
+        <button class="btn btn--dark w100" id="checkoutBtn">Proceed to Checkout</button>
+        <a class="btn btn--light w100" href="index.html">← Continue Shopping</a>
+
+        <p class="muted small" id="checkoutStatus"></p>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>
