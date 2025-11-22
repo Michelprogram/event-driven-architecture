@@ -47,8 +47,8 @@ func NewKafkaClient() *KafkaClient {
 	}
 
 	return &KafkaClient{
-		inventory,
-		notification,
+		notification: notification,
+		inventory:    inventory,
 	}
 }
 

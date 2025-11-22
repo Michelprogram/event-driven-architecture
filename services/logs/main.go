@@ -12,7 +12,7 @@ const (
 
 func main() {
 
-	logger := make(chan string, 1)
+	logger := make(chan string, 256)
 
 	db, err := internal.NewDatabase()
 
@@ -20,13 +20,16 @@ func main() {
 		log.Fatalln("Can't connect to database: ", err)
 	}
 
-	client := internal.NewKafkaClient(logger, db)
+	client := internal.NewKafkaClient(db)
 
-	go func() { client.Read() }()
+	go func() { client.Read(logger) }()
 	defer client.Close()
 
+	hub := internal.NewWebsocketHub(logger)
+	go hub.Run()
+
 	log.Println("Serveur up and running...")
-	err = http.ListenAndServe(PORT, internal.NewWebsocketHandler(logger))
+	err = http.ListenAndServe(PORT, hub)
 
 	if err != nil {
 		log.Fatalln("Can't run websocket server: ", err)

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SkateShop – Our Collection</title>
+    <link rel="stylesheet" href="style.css" />
+    <script defer src="app.js"></script>
+    <script defer src="popup.js"></script>
+    <script defer src="orders.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+  <body data-page="orders">
+    <!-- HEADER / NAV -->
+    <header class="topbar">
+      <div class="topbar__inner">
+        <div class="brand">
+          <img src="assets/logo.png" alt="SkateShop" class="brand__logo" />
+
+          <div>
+            <div class="brand__title">SkateShop</div>
+            <div class="brand__subtitle">
+              Premium Skateboards with Kafka Event Streaming
+            </div>
+          </div>
+        </div>
+
+        <div class="auth">
+          <input
+            id="authUsername"
+            type="text"
+            placeholder="Username"
+            autocomplete="username"
+          />
+          <input
+            id="authPassword"
+            type="password"
+            placeholder="Password"
+            autocomplete="current-password"
+          />
+          <button class="btn btn--light" id="registerBtn">Register</button>
+          <button class="btn btn--dark" id="loginBtn">Login</button>
+          <span id="authStatus" class="muted small"></span>
+        </div>
+
+        <a href="cart.html" class="cart-btn" id="viewCartBtn">
+          <span>🛒</span>
+          <span>View Cart (<span id="cartCount">0</span>)</span>
+        </a>
+        <a href="orders.html" class="cart-btn">
+          <span>📝</span>
+          <span>View Orders</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- CONTENT -->
+    <main class="container">
+      <h1 class="h1 mb-2">Orders</h1>
+      <p class="muted mb-4">Live orders processed by the Orders Service</p>
+
+      <div class="overflow-x-auto">
+        <table
+          class="min-w-full text-sm border border-slate-200 rounded-lg overflow-hidden"
+        >
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="text-left p-2">User ID</th>
+              <th class="text-left p-2">Product ID</th>
+              <th class="text-left p-2">Quantity</th>
+            </tr>
+          </thead>
+          <tbody
+            id="ordersTbody"
+            class="divide-y divide-slate-200 bg-white"
+          ></tbody>
+        </table>
+        <div id="ordersEmpty" class="muted small mt-3">No orders yet.</div>
+      </div>
+    </main>
+  </body>
+</html>
