@@ -16,10 +16,15 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type Item struct {
+	SKU string `json:"sku" bson:"sku"`
+	Qty int    `json:"qty" bson:"qty"`
+}
+
 type Order struct {
-	ProductID int `json:"productId"`
-	Quantity  int `json:"quantity"`
-	UserID    int `json:"userId"`
+	OrderID   string `json:"orderId" bson:"orderId"`
+	Reserved  []Item `json:"reserved" bson:"reserved"`
+	Timestamp string `json:"timestamp" bson:"timestamp"`
 }
 
 type Notification struct {
@@ -65,9 +70,14 @@ func main() {
 
 	r := gin.Default()
 	r.GET("/orders", func(c *gin.Context) {
-		orders, err := ordersCollection.Find(context.Background(), bson.M{})
+		cur, err := ordersCollection.Find(context.Background(), bson.M{})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get orders"})
+			return
+		}
+		var orders []bson.M
+		if err := cur.All(context.Background(), &orders); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read orders"})
 			return
 		}
 		c.JSON(http.StatusOK, orders)
@@ -81,6 +91,7 @@ func main() {
 				continue
 			}
 
+			log.Println("Received message: ", string(message.Value))
 			var order Order
 			if err := json.Unmarshal(message.Value, &order); err != nil {
 				log.Printf("Error unmarshaling JSON: %v\n", err)
@@ -95,7 +106,7 @@ func main() {
 				continue
 			}
 
-			notif := Notification{Action: fmt.Sprintf("New order created for ProductID %d", order.ProductID)}
+			notif := Notification{Action: fmt.Sprintf("New order created for ProductID %s", order.OrderID)}
 
 			notifJson, err := json.Marshal(notif)
 			if err != nil {

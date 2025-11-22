@@ -1,5 +1,3 @@
-version: "3.8"
-
 networks:
   users-service-network:
     driver: bridge
@@ -12,26 +10,28 @@ networks:
 
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
+    image: confluentinc/cp-zookeeper:7.0.1
     container_name: zookeeper
-    ports:
-      - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app-network
 
   kafka:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:7.0.1
     container_name: kafka
     ports:
       - "9092:9092"
+    expose:
+      - "29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
       - app-network
 
@@ -40,21 +40,32 @@ services:
     image: confluentinc/cp-kafka:7.0.1
     command: ["/bin/bash", "-c", "/create-topics.sh"]
     environment:
-      TOPICS: "logs.central,notifications.central,stock.reserve,stock.echec,order.central,payment.done"
+      TOPICS: "logs.central,notifications.central,stock.reserve,stock.echec,order-created,payment.done,inventories.central"
     depends_on:
-      - zookeeper
+      kafka:
+        condition: service_started
+    volumes:
+      - type: bind
+        source: ./ressources/create-topics.sh
+        target: /create-topics.sh
+    init: true
+    networks:
+      - app-network
 
-  frontend:
-    build: .
-    container_name: frontend
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       DYNAMIC_CONFIG_ENABLED: "true"
     volumes:
       - ./ressources/kafkaui.yml:/etc/kafkaui/dynamic_config.yaml
     networks:
       - app-network
+    depends_on: 
+      kafka-init:
+        condition: service_completed_successfully
 
   logs-service-database:
     container_name: logs-service-database
@@ -67,10 +78,25 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=password_root
     volumes:
       - ./services/logs/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    depends_on: 
+      kafka-init:
+        condition: service_completed_successfully
     networks:
       - logs-service-network
     healthcheck:
-      test: ["CMD", "mongosh", "--username", "admin_root", "--password", "password_root", "--authenticationDatabase", "admin", "--eval", "db.runCommand({ ping: 1 })"]
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--username",
+          "admin_root",
+          "--password",
+          "password_root",
+          "--authenticationDatabase",
+          "admin",
+          "--eval",
+          "db.runCommand({ ping: 1 })",
+        ]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -84,8 +110,6 @@ services:
       context: ./services/logs
       dockerfile: Dockerfile
     depends_on:
-      kafka-init:
-        condition: service_completed_successfully
       logs-service-database:
         condition: service_healthy
     restart: on-failure
@@ -106,8 +130,23 @@ services:
       - ./services/users/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     networks:
       - users-service-network
+    depends_on: 
+      kafka-init:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "mongosh", "--username", "admin_root", "--password", "password_root", "--authenticationDatabase", "admin", "--eval", "db.runCommand({ ping: 1 })"]
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--username",
+          "admin_root",
+          "--password",
+          "password_root",
+          "--authenticationDatabase",
+          "admin",
+          "--eval",
+          "db.runCommand({ ping: 1 })",
+        ]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -121,8 +160,6 @@ services:
       context: ./services/users
       dockerfile: Dockerfile
     depends_on:
-      kafka-init:
-        condition: service_completed_successfully
       users-service-database:
         condition: service_healthy
     restart: on-failure
@@ -170,8 +207,6 @@ services:
     environment:
       KAFKA_BROKER: kafka:29092
       TOPIC_INVENTORY: inventories.central
-      TOPIC_STOCK_RESERVED: stock.reserve
-      TOPIC_STOCK_FAILED: stock.echec
       TOPIC_LOGS: logs.central
       KAFKA_GROUP_ID: inventory-group
 
@@ -188,8 +223,23 @@ services:
       - ./services/orders/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     networks:
       - orders-service-network
+    depends_on: 
+      kafka-init:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "mongosh", "--username", "admin_root", "--password", "password_root", "--authenticationDatabase", "admin", "--eval", "db.runCommand({ ping: 1 })"]
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--username",
+          "admin_root",
+          "--password",
+          "password_root",
+          "--authenticationDatabase",
+          "admin",
+          "--eval",
+          "db.runCommand({ ping: 1 })",
+        ]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -203,11 +253,30 @@ services:
     ports:
       - "3003:3003"
     depends_on:
-      kafka-init:
-        condition: service_completed_successfully
       orders-service-database:
         condition: service_healthy
     restart: on-failure
     networks:
       - orders-service-network
       - app-network
+
+  skate-shop-frontend:
+    build: ./frontend
+    container_name: skate-shop-frontend
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+    depends_on:
+      logs-service:
+        condition: service_started
+      users-service:
+        condition: service_started
+      notifications-service:
+        condition: service_started
+      payments-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      orders-service:
+        condition: service_started

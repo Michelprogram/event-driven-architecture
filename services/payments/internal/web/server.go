@@ -40,7 +40,7 @@ func (s Server) Payment(w http.ResponseWriter, r *http.Request) {
 	// Get Token -> verify claims
 
 	// Simulate a delay to test the idempotence
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	err = s.Kakfa.SendInventory(itemName, itemQuantityInt)
 

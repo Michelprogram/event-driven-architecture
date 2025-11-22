@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	TOPIC          = "logs"
+	TOPIC          = "logs.central"
 	BROKER_ADDRESS = "kafka:29092"
 	GROUP_ID       = "logs-group"
 )
@@ -19,10 +19,9 @@ const (
 type KafkaClient struct {
 	reader *kafka.Reader
 	db     types.IDatabase
-	logger chan<- string
 }
 
-func NewKafkaClient(logger chan<- string, db types.IDatabase) *KafkaClient {
+func NewKafkaClient(db types.IDatabase) *KafkaClient {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{BROKER_ADDRESS},
 		Topic:   TOPIC,
@@ -32,11 +31,10 @@ func NewKafkaClient(logger chan<- string, db types.IDatabase) *KafkaClient {
 	return &KafkaClient{
 		reader,
 		db,
-		logger,
 	}
 }
 
-func (k KafkaClient) Read() error {
+func (k KafkaClient) Read(logger chan<- string) error {
 
 	for {
 		m, err := k.reader.ReadMessage(context.Background())
@@ -52,8 +50,17 @@ func (k KafkaClient) Read() error {
 
 		output := fmt.Sprintf("[Logs] Received %s", message)
 		log.Println(output)
-		k.logger <- output
-		k.db.Save(message)
+
+		select {
+		case logger <- output:
+		default:
+			// avoid blocking if no client yet; drop when buffer is full
+			log.Println("logger channel full, dropping message")
+		}
+
+		if err := k.db.Save(message); err != nil {
+			log.Printf("DB save error: %v", err)
+		}
 	}
 
 }

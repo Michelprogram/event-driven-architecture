@@ -11,6 +11,7 @@ import (
 
 	"github.com/segmentio/kafka-go"
 )
+
 type Item struct {
 	SKU string `json:"sku"`
 	Qty int    `json:"qty"`
@@ -51,9 +52,10 @@ type Notification struct {
 var (
 	invMu sync.Mutex
 	stock = map[string]int{
-		"deck-basic": 10,
-		"wheel-52mm": 8,
-		"truck-139":  5,
+		"pro-street":   10,
+		"elite-deck":   8,
+		"sunset-rider": 5,
+		"park-master":  12,
 	}
 	seen = map[string]bool{}
 )
@@ -72,6 +74,7 @@ func checkAndReserve(orderID string, items []Item) (ok bool, reserved []Item, mi
 	// 1. Vérifie le stock
 	for _, it := range items {
 		avail := stock[it.SKU]
+		log.Printf("Stock for %s: %d; Stock total: %v", it.SKU, avail, stock)
 		if avail < it.Qty {
 			missing = append(missing, Missing{
 				SKU: it.SKU, Required: it.Qty, Available: avail,
@@ -143,6 +146,7 @@ func main() {
 			continue
 		}
 
+		log.Println("Received message: ", string(m.Value))
 		// Décodage du message (événement payment.done)
 		var evt OrderPlaced
 		if err := json.Unmarshal(m.Value, &evt); err != nil || evt.OrderID == "" {

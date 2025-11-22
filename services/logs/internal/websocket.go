@@ -3,51 +3,62 @@ package internal
 import (
 	"log"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-type socketHandler struct {
+type WebsocketHub struct {
 	upgrade websocket.Upgrader
-	logger  <-chan string
+	in      <-chan string
+
+	mu    sync.Mutex
+	conns map[*websocket.Conn]struct{}
 }
 
-func NewWebsocketHandler(logger <-chan string) *socketHandler {
-	return &socketHandler{
+func NewWebsocketHub(in <-chan string) *WebsocketHub {
+	return &WebsocketHub{
 		upgrade: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return true
-			},
+			CheckOrigin: func(r *http.Request) bool { return true },
 		},
-		logger: logger,
+		in:    in,
+		conns: make(map[*websocket.Conn]struct{}),
 	}
 }
 
-func (s *socketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c, err := s.upgrade.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("error %s when upgrading connection to websocket", err)
-		return
-	}
-	defer c.Close()
-
-	done := make(chan struct{})
-
-	go func() {
-		for msg := range s.logger {
-			err := c.WriteMessage(websocket.TextMessage, []byte(msg))
-			if err != nil {
-				log.Printf("Error %s when sending message to client", err)
-				break
+func (h *WebsocketHub) Run() {
+	for msg := range h.in {
+		h.mu.Lock()
+		for c := range h.conns {
+			_ = c.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			if err := c.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
+				log.Printf("websocket write error: %v (dropping conn)", err)
+				_ = c.Close()
+				delete(h.conns, c)
 			}
 		}
-		close(done)
-	}()
+		h.mu.Unlock()
+	}
+}
 
-	select {
-
-	case <-done:
-	case <-r.Context().Done():
+func (h *WebsocketHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	c, err := h.upgrade.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("error upgrading to websocket: %v", err)
+		return
 	}
 
+	_ = c.WriteMessage(websocket.TextMessage, []byte("[Logs] websocket connected"))
+
+	h.mu.Lock()
+	h.conns[c] = struct{}{}
+	h.mu.Unlock()
+
+	<-r.Context().Done()
+
+	h.mu.Lock()
+	delete(h.conns, c)
+	h.mu.Unlock()
+	_ = c.Close()
 }
